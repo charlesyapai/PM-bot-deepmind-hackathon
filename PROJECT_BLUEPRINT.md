@@ -98,3 +98,155 @@ User speaks "Add a task called fix the login bug to my app project"
     - Auto-dismisses after 3 seconds
     - Haptic feedback (success vibration)
 ```
+
+---
+
+## 3. Database Schema
+
+10 tables in Supabase PostgreSQL:
+
+### Core Tables
+
+```sql
+-- Projects: top-level containers for tasks
+projects (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived', 'completed')),
+  template TEXT DEFAULT 'checklist',  -- 'kanban', 'checklist', 'sprint'
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Tasks: work items within projects
+-- NOTE: tasks do NOT have user_id. Ownership is via project_id -> projects.user_id
+tasks (
+  id UUID PK DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES projects(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),
+  priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  due_date DATE,
+  position INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Templates: predefined project structures
+templates (
+  id UUID PK DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,  -- 'kanban', 'checklist', 'sprint'
+  config JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Meeting notes: voice recordings with AI summaries
+meeting_notes (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  title TEXT NOT NULL,
+  transcript TEXT,
+  summary TEXT,
+  status TEXT DEFAULT 'draft',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+-- Action items: proposed tasks from meeting summaries
+action_items (
+  id UUID PK DEFAULT gen_random_uuid(),
+  meeting_note_id UUID REFERENCES meeting_notes(id),
+  title TEXT NOT NULL,
+  accepted BOOLEAN DEFAULT false,
+  task_id UUID REFERENCES tasks(id),
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+### Calendar
+
+```sql
+calendar_events (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time TIMESTAMPTZ NOT NULL,   -- Combined date+time as single TIMESTAMPTZ
+  end_time TIMESTAMPTZ,
+  all_day BOOLEAN DEFAULT false,
+  recurrence TEXT,                    -- 'daily', 'weekly', 'monthly', or null
+  reminder_minutes INTEGER,
+  status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'cancelled', 'completed')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+### File Attachments
+
+```sql
+attachments (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_type TEXT,
+  file_size INTEGER,
+  storage_path TEXT NOT NULL,   -- Path in Supabase Storage bucket "attachments"
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+```
+
+### Gmail Integration
+
+```sql
+email_integrations (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) UNIQUE,
+  google_access_token TEXT NOT NULL,
+  google_refresh_token TEXT NOT NULL,
+  token_expiry TIMESTAMPTZ,
+  gmail_address TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+)
+
+email_rules (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  rule_name TEXT NOT NULL,
+  sender_filter TEXT,
+  label_filter TEXT,
+  date_range_days INTEGER DEFAULT 7,
+  auto_import BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+)
+
+imported_emails (
+  id UUID PK DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  gmail_message_id TEXT NOT NULL,
+  subject TEXT,
+  sender TEXT,            -- Email address
+  sender_name TEXT,       -- Display name
+  received_at TIMESTAMPTZ,
+  snippet TEXT,
+  labels TEXT[],          -- Array of Gmail label IDs
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, gmail_message_id)
+)
+```
+
+### Key Schema Notes
+- **Tasks have no user_id.** Ownership is determined by `task.project_id -> project.user_id`. All task queries must scope through projects first.
+- **Calendar events use `start_time TIMESTAMPTZ`** -- a single combined date+time column, NOT separate date and time columns.
+- **`imported_emails` uses `sender` (not `sender_email`) and `labels TEXT[]` (array, not singular).**
+
+---
