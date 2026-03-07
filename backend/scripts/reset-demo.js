@@ -17,7 +17,7 @@ const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
 const USER_ID = "ba8eab5c-51ef-4911-b5d0-177910965a5b";
