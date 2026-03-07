@@ -1,0 +1,25 @@
+# Environment variables — never commit these
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Expo / React Native
+mobile/.expo/
+mobile/dist/
+mobile/build/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Agentic Communication
+*/inbox*
+*/past_emails.md
+*/inbox*

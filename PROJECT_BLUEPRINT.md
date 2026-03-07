@@ -250,3 +250,121 @@ imported_emails (
 - **`imported_emails` uses `sender` (not `sender_email`) and `labels TEXT[]` (array, not singular).**
 
 ---
+
+## 4. Backend API
+
+Base URL: `http://<host>:3000/api/v1`
+
+### REST Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | /health | Server health check |
+| GET/POST/PUT/DELETE | /projects | Full CRUD, user-scoped |
+| GET/POST/PUT/DELETE | /tasks | Full CRUD, scoped via project ownership |
+| GET | /templates | List system templates |
+| GET/POST | /meeting-notes | Meeting note CRUD |
+| GET/POST/PUT/DELETE | /calendar | Calendar event CRUD with date range filters |
+| GET | /housekeeping | Health report (overdue, stale, unset, past events, deadlines) |
+| GET/POST/DELETE | /attachments | File upload (multipart), list, download URL, delete |
+| GET | /gmail/auth-url | Google OAuth2 authorization URL |
+| GET | /gmail/callback | OAuth callback, stores tokens |
+| GET | /gmail/status | Connection status |
+| GET | /gmail/emails | Fetch emails with filters |
+| GET/POST/DELETE | /gmail/rules | Email rule CRUD |
+| POST | /gmail/sync | Trigger email import based on rules |
+| POST | /voice/transcribe | Batch meeting transcription |
+| POST | /voice/command | Text command fallback |
+
+### WebSocket
+
+`ws://<host>:3000/voice/stream?token=<JWT>`
+
+Messages:
+- **Client -> Server:** `{ type: "text_command", transcript: "..." }` (text input) or raw audio chunks (binary)
+- **Server -> Client:** `{ type: "partial", transcript: "..." }` (interim transcript)
+- **Server -> Client:** `{ type: "final", transcript: "...", confidence: 0.95 }` (final transcript)
+- **Server -> Client:** `{ type: "action", intent: { name, args }, result: { success, message, data } }` (AI action result)
+- **Server -> Client:** `{ type: "error", message: "..." }` (error)
+
+### Auth Pattern
+
+All routes extract user ID from JWT Bearer token:
+```js
+function getUserId(req) {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  return jwt.decode(token)?.sub || null;  // decode only, not verify (Supabase uses ES256)
+}
+```
+
+---
+
+## 5. AI Intent System
+
+### Model: Google Gemini 2.5 Flash
+
+Configured with:
+- `temperature: 0.1` (deterministic for reliable parsing)
+- `systemInstruction` defining personality, inference rules, and guardrails
+- `tools: [{ functionDeclarations }]` with 14 functions
+
+### 14 Function Declarations
+
+| Function | Purpose | Key Params |
+|---|---|---|
+| `create_project` | New project | title (required) |
+| `list_projects` | Show projects with task counts | (none) |
+| `create_task` | Add task to project | projectId, title (required) |
+| `update_task` | Modify task status/priority | taskId (required) |
+| `list_tasks` | Query tasks with filters | projectId, status, priority (all optional) |
+| `create_event` | Schedule calendar event | title, date (required) |
+| `list_events` | Query events by date range | fromDate, toDate (optional) |
+| `update_event` | Modify event | eventId (required) |
+| `delete_event` | Remove event (guarded) | eventId (required) |
+| `run_housekeeping` | Board health analysis | (none) |
+| `check_emails` | Search imported emails | sender, label, since (all optional) |
+| `create_task_from_email` | Turn email into task | emailId (required) |
+| `respond` | Conversational response | message (required), suggestedActions |
+| `clarify` | Ask follow-up question | promptText (required) |
+
+### AI Personality & Rules
+
+The system instruction makes the AI a **conversational personal project manager**, not just an intent parser:
+
+1. **Smart context inference:** Auto-selects the only project, matches partial names ("marketing project" -> "Marketing Campaign Q2"), resolves relative dates ("tomorrow", "next Friday")
+2. **Duplicate detection:** Before creating a task, checks if a similar one exists or is already done
+3. **Duration inference:** "This should take 2 days" -> sets due_date to today+2
+4. **Task refinement:** Vague tasks ("work on the app") trigger sub-task suggestions
+5. **Status awareness:** "Mark the design task as done" -> fuzzy matches, warns if already done
+6. **Guardrails:** Deletes require exact name match, never invents IDs, low confidence triggers clarify
+
+### Context Object (sent to Gemini with every request)
+
+```json
+{
+  "userId": "uuid",
+  "today": "Saturday, March 7, 2026",
+  "todayISO": "2026-03-07",
+  "dayOfWeek": "Saturday",
+  "projects": [
+    {
+      "index": 1, "id": "uuid", "title": "My App",
+      "pendingTasks": 3, "completedTasks": 5, "totalTasks": 8,
+      "tasks": [
+        { "id": "uuid", "title": "Fix login bug", "status": "todo", "priority": "high" }
+      ]
+    }
+  ],
+  "recentTasks": [ ... ],
+  "upcomingEvents": [ ... ],
+  "recentEmails": [ ... ],
+  "conversationHistory": "[Turn 1] User: ...\n[Turn 1] Assistant: ..."
+}
+```
+
+### Conversation History
+
+Per-user in-memory Map. Cleared after successful CRUD actions. Kept for clarify/respond turns. Max 6 turns (12 entries).
+
+---
