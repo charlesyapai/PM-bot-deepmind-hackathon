@@ -126,23 +126,81 @@ router.get("/daily-summary", async (req, res) => {
       project: projectTitleMap[t.project_id] || "Unknown",
     }));
 
+    // Compute free time blocks from calendar events
+    const calendarItems = (events || []).map((e) => ({
+      title: e.title,
+      start: e.start_time,
+      end: e.end_time,
+      all_day: e.all_day,
+    }));
+
+    const now = new Date();
+    const workdayStart = new Date(now); workdayStart.setHours(8, 0, 0, 0);
+    const workdayEnd = new Date(now); workdayEnd.setHours(18, 0, 0, 0);
+    const effectiveStart = now > workdayStart ? now : workdayStart;
+
+    // Sort events by start time and calculate gaps
+    const sortedEvents = calendarItems
+      .filter((e) => !e.all_day && e.end)
+      .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+    const freeBlocks = [];
+    let cursor = effectiveStart;
+    for (const evt of sortedEvents) {
+      const evtStart = new Date(evt.start);
+      const evtEnd = new Date(evt.end);
+      if (evtStart > cursor && evtStart < workdayEnd) {
+        const gapMinutes = Math.round((evtStart - cursor) / 60000);
+        if (gapMinutes >= 15) {
+          freeBlocks.push({
+            from: cursor.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+            to: evtStart.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+            minutes: gapMinutes,
+          });
+        }
+      }
+      if (evtEnd > cursor) cursor = evtEnd;
+    }
+    if (cursor < workdayEnd) {
+      const gapMinutes = Math.round((workdayEnd - cursor) / 60000);
+      if (gapMinutes >= 15) {
+        freeBlocks.push({
+          from: cursor.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+          to: workdayEnd.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+          minutes: gapMinutes,
+        });
+      }
+    }
+
+    const totalFreeMinutes = freeBlocks.reduce((sum, b) => sum + b.minutes, 0);
+    const totalFreeHours = (totalFreeMinutes / 60).toFixed(1);
+    const totalBusyMinutes = sortedEvents.reduce((sum, e) => {
+      const dur = (new Date(e.end) - new Date(e.start)) / 60000;
+      return sum + Math.max(0, dur);
+    }, 0);
+
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-    const prompt = `You are a productivity assistant. Analyze the user's pending tasks across their projects and today's calendar to recommend a focused workflow for today. Consider:
+    const prompt = `You are a productivity assistant. Analyze the user's pending tasks, calendar commitments, and available free time to recommend a realistic workflow for today. Consider:
+- How much free time the user actually has (${totalFreeHours} hours / ${totalFreeMinutes} minutes)
+- Which free time blocks are large enough for deep work vs. only quick tasks
 - Which tasks are overdue or due soonest (highest urgency)
 - Which tasks are high priority vs low priority
 - The project context (which projects need attention)
 - Task tags (meetings, email replies are typically time-sensitive)
-- Available time blocks around calendar events
 
-Be concise (3-5 sentences). Reference specific task names and their projects. Clearly separate "do now" tasks from "do if time allows" tasks.
+Be concise (3-5 sentences). Reference specific task names and their projects. Match recommendations to available time — if the user is heavily booked, only recommend what's realistically achievable. Clearly separate "do now" tasks from "do if time allows" tasks.
 
 TODAY'S DATE: ${new Date().toISOString().split("T")[0]}
+CURRENT TIME: ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
 
 PENDING TASKS (by project):
 ${JSON.stringify(tasksWithProject, null, 2)}
 
-TODAY'S CALENDAR:
-${JSON.stringify((events || []).map((e) => ({ title: e.title, start: e.start_time, end: e.end_time })), null, 2)}
+TODAY'S CALENDAR (${sortedEvents.length} events, ${totalBusyMinutes} minutes booked):
+${JSON.stringify(calendarItems, null, 2)}
+
+FREE TIME BLOCKS (${totalFreeHours} hours available):
+${JSON.stringify(freeBlocks, null, 2)}
 
 Respond with ONLY plain text (no JSON, no markdown formatting).`;
 

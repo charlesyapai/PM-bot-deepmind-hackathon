@@ -3,8 +3,8 @@ export const colors = {
   primary: '#007AFF', // iOS System Blue
 
   // Background
-  backgroundLight: '#F2F2F7', // System Grouped Background
-  cardBackground: '#FFFFFF',
+  backgroundLight: '#EEF0F8', // Soft blue-grey tint
+  cardBackground: '#F7F5EF', // Warm ivory with subtle yellow
 
   // Text
   textPrimary: '#000000',

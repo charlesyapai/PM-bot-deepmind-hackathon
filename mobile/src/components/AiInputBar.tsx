@@ -345,16 +345,16 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#C0C0C8',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(0,122,255,0.08)',
+    backgroundColor: '#E8E8ED',
   },
   chipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.primary,
+    color: '#48484A',
   },
   // Input bar
   inputBar: {
