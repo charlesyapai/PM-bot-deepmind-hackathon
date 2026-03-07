@@ -136,7 +136,7 @@ function getCalendarEvents(userId) {
   ];
 }
 
-function getImportedEmails(userId) {
+function getImportedEmails(userId, projectIds) {
   return [
     {
       user_id: userId,
@@ -145,9 +145,11 @@ function getImportedEmails(userId) {
       sender: "s.mitchell@university.edu",
       sender_name: "Dr. Sarah Mitchell",
       received_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      snippet: "Alex, the preliminary p-tau217 results from cohort A are in. The signal-to-noise ratio looks promising (AUC 0.89). I've uploaded the raw data to our shared drive. Can you start running the analysis pipeline on this batch? We should discuss next steps at the lab seminar on Thursday.",
+      snippet: "Alex, the preliminary p-tau217 results from cohort A are in. The signal-to-noise ratio looks promising (AUC 0.89).",
+      body_text: "Alex,\n\nThe preliminary p-tau217 results from cohort A are in. The signal-to-noise ratio looks promising (AUC 0.89). I've uploaded the raw data to our shared drive.\n\nCan you start running the analysis pipeline on this batch? We should discuss next steps at the lab seminar on Thursday.\n\nAlso, I'd like to schedule a meeting for Friday at 2pm to review the full dataset together before we proceed to cohort B recruitment.\n\nBest,\nSarah",
       labels: ["INBOX", "IMPORTANT"],
       is_read: false,
+      project_id: projectIds.alzheimers,
     },
     {
       user_id: userId,
@@ -156,9 +158,11 @@ function getImportedEmails(userId) {
       sender: "s.mitchell@university.edu",
       sender_name: "Dr. Sarah Mitchell",
       received_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      snippet: "The IRB approved our protocol amendment v3.2. Updated consent forms are attached. Please distribute to all recruitment sites by end of week. Also, we need to update the patient recruitment SOP to reflect the new inclusion criteria for cohort B.",
+      snippet: "The IRB approved our protocol amendment v3.2. Updated consent forms are attached.",
+      body_text: "Alex,\n\nGreat news — the IRB approved our protocol amendment v3.2. Updated consent forms are attached.\n\nAction items:\n1. Distribute updated consent forms to all 4 recruitment sites by end of week\n2. Update the patient recruitment SOP to reflect the new inclusion criteria for cohort B\n3. Schedule a brief training call with site coordinators next week\n\nThe new criteria expand our age range to 55-85 (was 60-80), which should help with recruitment numbers.\n\nThanks,\nSarah",
       labels: ["INBOX"],
       is_read: false,
+      project_id: projectIds.alzheimers,
     },
     {
       user_id: userId,
@@ -167,9 +171,11 @@ function getImportedEmails(userId) {
       sender: "j.park@university.edu",
       sender_name: "Dr. James Park",
       received_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-      snippet: "Alex, just a reminder that the AGU abstract deadline is in 2 days. I've reviewed your draft and left comments on the shared doc. Main feedback: strengthen the validation metrics section and add the new precipitation bias correction results. Let's finalize tomorrow morning.",
+      snippet: "Alex, just a reminder that the AGU abstract deadline is in 2 days.",
+      body_text: "Alex,\n\nJust a reminder that the AGU abstract deadline is in 2 days. I've reviewed your draft and left comments on the shared doc.\n\nMain feedback:\n- Strengthen the validation metrics section — add RMSE and bias numbers\n- Add the new precipitation bias correction results from last week's run\n- The introduction needs a clearer statement of novelty\n\nLet's finalize tomorrow morning — can you block 9am-10am for a quick review call?\n\nThis is our best shot at an oral presentation slot. Don't miss this deadline!\n\nJames",
       labels: ["INBOX", "IMPORTANT", "STARRED"],
       is_read: false,
+      project_id: projectIds.climate,
     },
     {
       user_id: userId,
@@ -178,9 +184,11 @@ function getImportedEmails(userId) {
       sender: "j.park@university.edu",
       sender_name: "Dr. James Park",
       received_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      snippet: "I've updated the WRF physics parameterization settings based on our latest sensitivity tests. The Thompson microphysics scheme with the YSU PBL is giving us better precipitation patterns. Please update the calibration run with these settings and compare against the PRISM observations.",
+      snippet: "I've updated the WRF physics parameterization settings based on our latest sensitivity tests.",
+      body_text: "Alex,\n\nI've updated the WRF physics parameterization settings based on our latest sensitivity tests.\n\nChanges:\n- Switched to Thompson microphysics scheme (was Morrison 2-moment)\n- YSU PBL instead of MYJ\n- Updated SST boundary conditions with ERA5 reanalysis\n\nThese settings are giving us much better precipitation patterns over the Cascades. Please update the calibration run with these settings and compare against the PRISM observations.\n\nThe updated namelist.input is in our shared Drive folder.\n\nJames",
       labels: ["INBOX"],
       is_read: true,
+      project_id: projectIds.climate,
     },
     {
       user_id: userId,
@@ -189,9 +197,11 @@ function getImportedEmails(userId) {
       sender: "p.sharma@biogenix.com",
       sender_name: "Dr. Priya Sharma",
       received_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      snippet: "Welcome aboard, Alex! Attached is the project requirements document and our internal timeline. We're targeting a 6-month delivery for the MVP pipeline. Let's discuss during our kickoff meeting tomorrow. Key deliverables: Nextflow pipeline for WGS/WES variant calling, benchmarked against GATK and DeepVariant.",
+      snippet: "Welcome aboard, Alex! Attached is the project requirements document and our internal timeline.",
+      body_text: "Welcome aboard, Alex!\n\nAttached is the project requirements document and our internal timeline. We're targeting a 6-month delivery for the MVP pipeline.\n\nKey deliverables:\n1. Nextflow pipeline for WGS/WES variant calling\n2. Benchmarked against GATK Best Practices and DeepVariant\n3. Cloud deployment on AWS (we'll provide the account)\n4. Documentation and handoff training\n\nLet's discuss during our kickoff meeting tomorrow at 10am. I'll send a calendar invite.\n\nLooking forward to working together!\n\nBest,\nPriya",
       labels: ["INBOX"],
       is_read: true,
+      project_id: projectIds.genomics,
     },
   ];
 }
@@ -266,7 +276,7 @@ async function seed() {
 
   // --- Create imported emails ---
   console.log("\nCreating imported emails...");
-  const emails = getImportedEmails(userId);
+  const emails = getImportedEmails(userId, projectIds);
   for (const email of emails) {
     const { error } = await supabase
       .from("imported_emails")
@@ -346,7 +356,7 @@ async function clean() {
     .in("title", demoEventTitles);
 
   // Delete demo emails
-  const demoEmailIds = getImportedEmails(userId).map((e) => e.gmail_message_id);
+  const demoEmailIds = getImportedEmails(userId, {}).map((e) => e.gmail_message_id);
   console.log("Deleting demo imported emails...");
   await supabase
     .from("imported_emails")
