@@ -1,0 +1,4 @@
+# This is the login user and password for the test app
+
+Username: testuser2@gmail.com
+Password TestPassword123

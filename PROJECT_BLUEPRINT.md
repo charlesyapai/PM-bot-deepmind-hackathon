@@ -368,3 +368,327 @@ The system instruction makes the AI a **conversational personal project manager*
 Per-user in-memory Map. Cleared after successful CRUD actions. Kept for clarify/respond turns. Max 6 turns (12 entries).
 
 ---
+
+## 6. Voice Pipeline
+
+### Components (7 files in `backend/src/services/voice/`)
+
+1. **voiceStreamRouter.js** - Attaches WebSocket server to HTTP server at `/voice/stream`. Extracts JWT from query params. Creates one `VoiceSession` per connection.
+2. **voiceSession.js** - Per-connection state machine. Handles control messages (`start`, `stop`, `text_command`). Streams audio to DeepgramClient. Receives transcripts and calls `onFinalTranscript`.
+3. **deepgramClient.js** - Wraps Deepgram SDK. Opens live streaming connection with `model: "nova-2"`, `language: "en"`, `smart_format: true`. Returns partial and final transcripts.
+4. **audioProcessor.js** - Validates audio format, chunks binary data for streaming.
+5. **voiceRestRouter.js** - REST fallback for batch transcription and text commands.
+6. **meetingTranscriber.js** - Batch transcription for uploaded meeting audio files.
+7. **index.js** - Barrel export.
+
+### Text Command Shortcut
+
+When the user types instead of speaks, `VoiceSession` handles `text_command` messages by bypassing Deepgram entirely and calling `onFinalTranscript` directly with the typed text.
+
+---
+
+## 7. Mobile App Structure
+
+### Navigation
+
+```
+RootNavigator (Native Stack)
+  |
+  |-- [Not authenticated] --> LoginScreen
+  |
+  |-- [Authenticated] -->
+        |-- MainTabs (Bottom Tab Navigator)
+        |     |-- Projects tab (ProjectsScreen)
+        |     |-- Tasks tab (TasksScreen)
+        |     |-- Voice FAB (VoiceOverlay trigger, not a real tab)
+        |     |-- Calendar tab (CalendarScreen)
+        |     |-- Settings tab (SettingsScreen)
+        |
+        |-- ProjectDetail (pushed from Projects)
+        |-- GmailSettings (pushed from Settings)
+```
+
+### Screen Descriptions
+
+| Screen | What It Does |
+|---|---|
+| **LoginScreen** | Email/password auth via Supabase. Toggle between sign-in and sign-up. |
+| **ProjectsScreen** | FlatList of projects with status badges, template labels. "+" button creates new project via modal. Tap project -> ProjectDetail. |
+| **TasksScreen** | Global view of all tasks across projects. Priority color bars, status indicators. |
+| **ProjectDetailScreen** | Single project view. Checklist of tasks with checkbox toggle. Progress bar. "+" to add task. Paperclip to attach files. Attachment chips below tasks. |
+| **CalendarScreen** | SectionList grouped by day. Event cards with status dot, time range, project tag. "+" creates event via modal (date/time pickers, project picker, all-day toggle). Pull-to-refresh. |
+| **SettingsScreen** | Grouped iOS-style list: Gmail Integration (-> GmailSettings), Board Health Check (opens modal with housekeeping results), Storage (cache size + clear), Sign Out. |
+| **GmailSettingsScreen** | Gmail OAuth connection. Email rules list with add/delete. Imported emails with "Create Task" action. Manual sync button. |
+
+### VoiceOverlay Component
+
+Full-screen modal triggered by the center FAB in the tab bar. States:
+
+1. **Idle** - Mic button, text input field for typing
+2. **Listening** - Pulsing blue mic, "Listening..." text, live partial transcript
+3. **Processing** - Spinner while Gemini parses intent
+4. **Done (success)** - Green mic with checkmark, success result card, auto-dismiss 3s
+5. **Done (response)** - Blue mic, AI response card with suggested action pills
+6. **Clarifying** - Blue pulsing mic, clarification bubble, "Listening for your answer..."
+7. **Error** - Red mic with "!" icon, error message, "Tap to retry"
+
+### Design System
+
+- **Colors:** iOS System Blue (#007AFF), System backgrounds, semantic red/green/orange
+- **Typography:** San Francisco, H1 34pt Bold, H2 28pt Semibold, Body 17pt, Caption 13pt
+- **Spacing:** 8px grid, 16px margins, 12px rounded corners
+
+---
+
+## 8. Gmail Integration Flow
+
+```
+User taps "Gmail Integration" in Settings
+    |
+    v
+GmailSettingsScreen shows "Connect Gmail" button
+    |
+    v
+Taps button -> calls GET /api/v1/gmail/auth-url
+    |
+    v
+Opens Google OAuth consent screen in browser
+    |
+    v
+User authorizes -> Google redirects to /api/v1/gmail/callback?code=xxx
+    |
+    v
+Backend exchanges code for access_token + refresh_token
+    |
+    v
+Stores tokens in email_integrations table
+    |
+    v
+Screen now shows "Connected: user@gmail.com"
+    |
+    v
+User creates email rules (e.g., "From: boss@company.com, Label: Project-X, Last 7 days")
+    |
+    v
+User taps "Sync Now" -> POST /api/v1/gmail/sync
+    |
+    v
+Backend fetches emails matching rules via Gmail API
+    |
+    v
+Upserts into imported_emails table (deduplicates by gmail_message_id)
+    |
+    v
+Emails appear in list. User can:
+  - Tap email -> see details + "Create Task from Email" button
+  - Say "check my emails from Sarah" -> AI calls check_emails
+  - Say "make a task from that email" -> AI calls create_task_from_email
+```
+
+---
+
+## 9. Housekeeping Flow
+
+### Voice-Triggered
+```
+User says "Clean up my board" or "What needs attention?"
+    |
+    v
+Gemini calls run_housekeeping (no params)
+    |
+    v
+IntentExecutor queries Supabase:
+  1. Overdue tasks (due_date < today, status != done)
+  2. Stale projects (no task updates in 7+ days)
+  3. Untriaged tasks (missing due_date or priority)
+  4. Past events (start_time < now, still "scheduled")
+  5. Upcoming deadlines (due_date within 48h)
+    |
+    v
+Formats as conversational message:
+  "Here's your board health check:
+   Overdue tasks (2):
+     - 'Fix login bug' was due 2026-03-05 (My App)
+   ..."
+    |
+    v
+Sent to VoiceOverlay as respond-type message
+```
+
+### Manual-Triggered
+```
+User taps "Board Health Check" in Settings
+    |
+    v
+Calls GET /api/v1/housekeeping
+    |
+    v
+Returns structured JSON with all categories
+    |
+    v
+Displayed in modal with summary bar (overdue count, attention count, upcoming count)
+and collapsible category sections with tappable issue cards
+```
+
+---
+
+## 10. File Structure
+
+```
+Personal Bot/
+|-- backend/
+|   |-- server.js                        # Express + HTTP + WS entry point
+|   |-- .env                             # API keys (gitignored)
+|   |-- .env.example                     # Template for env vars
+|   |-- package.json
+|   |-- src/
+|       |-- lib/
+|       |   |-- supabase.js              # Supabase client singleton
+|       |-- routes/
+|       |   |-- projects.js              # CRUD
+|       |   |-- tasks.js                 # CRUD
+|       |   |-- templates.js             # Read-only
+|       |   |-- meeting-notes.js         # CRUD
+|       |   |-- calendar.js              # CRUD with date filters
+|       |   |-- housekeeping.js          # Health analysis
+|       |   |-- attachments.js           # File upload/download
+|       |   |-- gmail.js                 # OAuth + rules + sync
+|       |-- services/
+|           |-- voice/
+|           |   |-- index.js
+|           |   |-- voiceStreamRouter.js
+|           |   |-- voiceSession.js
+|           |   |-- deepgramClient.js
+|           |   |-- audioProcessor.js
+|           |   |-- voiceRestRouter.js
+|           |   |-- meetingTranscriber.js
+|           |-- logicAi/
+|           |   |-- geminiClient.js      # Gemini SDK + 14 function declarations
+|           |   |-- intentExecutor.js    # CRUD execution for all intents
+|           |   |-- voiceCommandHandler.js # Context fetch + parse + execute
+|           |   |-- meetingSummarizer.js  # Meeting summary extraction
+|           |-- gmail/
+|               |-- gmailClient.js       # Gmail API wrapper
+|
+|-- mobile/
+|   |-- app.json                         # Expo config
+|   |-- package.json
+|   |-- index.ts                         # Entry point
+|   |-- src/
+|       |-- lib/
+|       |   |-- supabase.ts              # Supabase client + auth helpers
+|       |   |-- localStorage.ts          # File caching + offline storage
+|       |-- services/
+|       |   |-- api.ts                   # All typed API fetch wrappers
+|       |-- theme/
+|       |   |-- colors.ts               # iOS design system colors
+|       |   |-- typography.ts           # Font sizes and weights
+|       |-- components/
+|       |   |-- VoiceOverlay.tsx         # Voice capture + WS + intent display
+|       |-- navigation/
+|       |   |-- RootNavigator.tsx        # Auth gate
+|       |   |-- TabNavigator.tsx         # Bottom tabs + VoiceFAB
+|       |-- screens/
+|           |-- LoginScreen.tsx
+|           |-- ProjectsScreen.tsx
+|           |-- ProjectDetailScreen.tsx
+|           |-- TasksScreen.tsx
+|           |-- CalendarScreen.tsx
+|           |-- SettingsScreen.tsx
+|           |-- GmailSettingsScreen.tsx
+|           |-- MeetingNotesScreen.tsx
+```
+
+---
+
+## 11. Environment Variables
+
+```bash
+# Backend (.env)
+PORT=3000
+
+# Supabase
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_xxxxx
+SUPABASE_JWT_SECRET=xxxxx
+
+# Deepgram (Speech-to-Text)
+DEEPGRAM_API_KEY=xxxxx
+
+# Google Gemini (AI Intent Parsing)
+GEMINI_API_KEY=xxxxx
+
+# Google OAuth (Gmail Integration)
+GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=xxxxx
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/v1/gmail/callback
+```
+
+```bash
+# Mobile (hardcoded in api.ts, supabase.ts)
+BASE_URL=http://<LAN_IP>:3000/api/v1
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_xxxxx
+```
+
+---
+
+## 12. How to Build From Scratch
+
+### Step 1: Set Up Supabase
+1. Create Supabase project
+2. Disable email confirmation in Auth settings
+3. Run all CREATE TABLE SQL (10 tables)
+4. Create Storage bucket "attachments" (private)
+5. Enable RLS on all tables with `auth.uid() = user_id` policies
+
+### Step 2: Backend
+1. `mkdir backend && cd backend && npm init -y`
+2. Install: `express cors dotenv jsonwebtoken @supabase/supabase-js @google/generative-ai @deepgram/sdk ws multer googleapis`
+3. Create `src/lib/supabase.js` (client singleton)
+4. Build routes one at a time: projects -> tasks -> templates -> calendar -> housekeeping -> attachments -> gmail
+5. Build voice pipeline: deepgramClient -> audioProcessor -> voiceSession -> voiceStreamRouter
+6. Build AI pipeline: geminiClient (system instruction + 14 functions) -> intentExecutor -> voiceCommandHandler
+7. Wire everything in server.js
+
+### Step 3: Mobile
+1. `npx create-expo-app mobile --template blank-typescript`
+2. Install: `@supabase/supabase-js @react-native-async-storage/async-storage @react-navigation/native @react-navigation/bottom-tabs @react-navigation/native-stack react-native-screens react-native-safe-area-context lucide-react-native expo-av expo-document-picker expo-file-system expo-haptics expo-auth-session expo-crypto`
+3. Create theme files (colors, typography)
+4. Create supabase.ts and api.ts
+5. Build screens: Login -> Projects -> ProjectDetail -> Tasks -> Calendar -> Settings -> GmailSettings
+6. Build VoiceOverlay component
+7. Build navigation: RootNavigator (auth gate) -> TabNavigator (5 tabs)
+8. Build localStorage.ts for offline caching
+
+### Step 4: Development Build
+1. Update app.json with bundle ID, permissions, plugins
+2. `npx expo prebuild --platform ios`
+3. `npx expo run:ios` (requires Xcode)
+
+### Step 5: Connect Everything
+1. Set backend .env with all API keys
+2. Set mobile BASE_URL to your LAN IP
+3. Start backend: `cd backend && node server.js`
+4. Start mobile: `cd mobile && npx expo run:ios`
+5. Test: Login -> Create project -> Voice command "add a task called hello world" -> Verify task appears
+
+---
+
+## 13. Key Design Decisions & Gotchas
+
+1. **JWT decode, not verify:** Supabase uses ES256 (asymmetric). The backend uses `jwt.decode()` with manual expiry check instead of `jwt.verify()`, because verify requires the public key which isn't easily available.
+
+2. **Tasks scoped through projects:** Never query tasks with `user_id`. Always get user's project IDs first, then query tasks with `.in("project_id", projectIds)`.
+
+3. **Calendar uses TIMESTAMPTZ:** Don't split into separate date and time columns. Combine as `${date}T${time}:00` when creating events from Gemini's separate date/startTime params.
+
+4. **Voice text fallback:** Since expo-av mic capture requires a native build (not Expo Go), the VoiceOverlay has a text input field that sends `{ type: "text_command", transcript: "..." }` over the WebSocket, bypassing Deepgram entirely.
+
+5. **Gemini function calling, not chat:** The AI doesn't generate free text. It ALWAYS returns a function call (one of 14 declarations). If it generates text instead, the client wraps it in a `respond` function call as fallback.
+
+6. **Conversation history is per-user, in-memory:** Not persisted to DB. Cleared after successful CRUD actions. Only maintained for clarify/respond multi-turn flows. Max 12 entries.
+
+7. **Supabase anon key format:** May look like `sb_publishable_...` instead of the typical `eyJ...` JWT format. Both work.
+
+8. **Multer for file uploads:** Uses memory storage (buffer), not disk. 10MB limit. Uploaded to Supabase Storage, metadata saved to attachments table.
