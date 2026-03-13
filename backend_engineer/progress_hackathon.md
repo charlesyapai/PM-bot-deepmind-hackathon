@@ -1,0 +1,20 @@
+# 📊 Backend Engineer — Progress Report
+
+**Role:** Backend Engineer
+
+---
+
+## Status: 🟢 Active
+
+| Date       | Update                                                                         |
+| ---------- | ------------------------------------------------------------------------------ |
+| 2026-03-06 | Mailbox created. Awaiting architecture design to begin backend implementation. |
+| 2026-03-06 | Defined db schemas, Express skeleton, and API contracts. Ready for FE.         |
+| 2026-03-06 21:00 | Implemented Supabase-backed routes: projects, tasks, templates, meeting-notes. Created src/lib/supabase.js. Replaced mock stubs in server.js with real route files. Pending: npm install @supabase/supabase-js (Bash tool unavailable — run manually). |
+| 2026-03-07 10:45 | Created `backend/src/routes/calendar.js` with full CRUD (GET list with date-range + project_id filters, POST create, GET/:id, PUT/:id, DELETE/:id with ownership check). Registered route in server.js. Updated status page HTML. SQL for `calendar_events` table documented in route file header comment. |
+| 2026-03-07 14:00 | **Housekeeping endpoint**: Created `backend/src/routes/housekeeping.js` — GET /api/v1/housekeeping returns health report (overdue tasks, stale projects, unset tasks, past events, upcoming deadlines with summary counts). All queries run in parallel. |
+| 2026-03-07 14:00 | **File attachments**: Created `backend/src/routes/attachments.js` — GET list (filter by task_id/project_id), POST upload (multer + Supabase Storage), GET /:id/download (signed URL), DELETE /:id (storage + metadata). SQL for `attachments` table in header. Added `multer` to package.json. |
+| 2026-03-07 14:00 | **Gmail integration**: Created `backend/src/services/gmail/gmailClient.js` (OAuth2, fetchEmails, refreshAccessToken, getEmailDetail). Created `backend/src/routes/gmail.js` — auth-url, callback, status, emails, rules CRUD, sync. SQL for 3 tables (email_integrations, email_rules, imported_emails) in header. Added `googleapis` to package.json. Updated .env.example with GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI. |
+| 2026-03-07 14:00 | All 3 routes registered in server.js. Status page HTML updated with all new endpoints. **Pending**: user must run `npm install` to add multer + googleapis. Must create Supabase tables (SQL in route file headers) and Storage bucket "attachments". |
+| 2026-03-07 20:30 | **v2 Phase 1: Unified Google OAuth** -- Created `backend/src/services/google/googleAuthClient.js` (unified OAuth2 with 5 scopes: gmail.readonly, gmail.send, calendar, drive.file, userinfo.email). Created `backend/src/routes/google.js` (auth-url, callback, status, disconnect). Updated `gmail.js` to read tokens from `google_integrations` table instead of `email_integrations`. Registered `/api/v1/google` in server.js. Updated `.env.example` redirect URI. **Pending**: Create `google_integrations` table in Supabase. Update `.env` GOOGLE_REDIRECT_URI to `/api/v1/google/callback`. |
+| 2026-03-07 21:30 | **v2 Phases 2-4 COMPLETE.** Phase 2 (Calendar Sync): Created `calendarSyncService.js` with pushEvent, pullEvents (incremental syncToken), deleteGoogleEvent, syncBidirectional. Updated `calendar.js` to push/delete on Google on create/update/delete + added POST `/calendar/sync` endpoint. Phase 3 (Drive): Created `driveService.js` with createRootFolder, createProjectFolder, uploadFile, listFiles, getFileContent, deleteFile, getDownloadUrl. Created `drive.js` route (4 endpoints). Updated `projects.js` to auto-create Drive folder on project create. Phase 4 (Board Update): Created `boardUpdateEngine.js` (orchestrates email scan + Drive scan + calendar sync + housekeeping + AI summary), `boardSummaryGenerator.js` (Gemini-powered summary). Created `board-update.js` route (POST trigger + GET history). All routes registered in server.js, status page updated. Server boots clean. **Pending SQL**: See each service file header for ALTER TABLE statements (calendar_events, projects, attachments) and CREATE TABLE board_updates. |
