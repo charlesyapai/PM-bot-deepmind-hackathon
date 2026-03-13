@@ -37,6 +37,8 @@ async function executeIntent(intent, userId) {
       return listTasks(args, userId);
 
     // --- Calendar Events ---
+    case "list_events":
+      return listEvents(args, userId);
     case "create_event":
       return createEvent(args, userId);
     case "update_event":
@@ -449,6 +451,32 @@ function normTime(t) {
   if (ampm === "PM" && h < 12) h += 12;
   if (ampm === "AM" && h === 12) h = 0;
   return `${String(h).padStart(2, "0")}:${min}`;
+}
+
+async function listEvents({ fromDate, toDate }, userId) {
+  const from = fromDate || new Date().toISOString().split("T")[0];
+  const to = toDate || new Date(new Date(from).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  const { data: events, error } = await supabase
+    .from("calendar_events")
+    .select("id, title, start_time, end_time, all_day, description, status")
+    .eq("user_id", userId)
+    .gte("start_time", `${from}T00:00:00`)
+    .lte("start_time", `${to}T23:59:59`)
+    .neq("status", "cancelled")
+    .order("start_time", { ascending: true });
+
+  if (error) return `Error fetching events: ${error.message}`;
+  if (!events || events.length === 0) return `No events found from ${from} to ${to}.`;
+
+  const lines = events.map((e) => {
+    const d = new Date(e.start_time);
+    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const time = e.all_day ? "All day" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return `• ${day}, ${time} — ${e.title}`;
+  });
+
+  return `You have ${events.length} event${events.length === 1 ? "" : "s"} from ${from} to ${to}:\n${lines.join("\n")}`;
 }
 
 async function createEvent({ title, date, startTime, endTime, description, projectId }, userId) {

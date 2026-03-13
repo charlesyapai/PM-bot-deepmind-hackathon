@@ -49,6 +49,12 @@ BOSS / NEW PROJECT DETECTION:
 - When an email clearly relates to an existing project (matched by sender rule's project_id or by topic), suggest "create_task" within that project instead.
 - Always prefer mapping to existing projects when the topic matches. Only suggest create_project for genuinely new initiatives.
 
+GENERAL / ADMIN TASKS:
+- Some emails contain action items that don't belong to any specific project (e.g. scheduling meetings, replying to emails, admin tasks, general follow-ups).
+- For these, use the "General" project ID provided in the context. There will always be a project with title "General" — use its ID.
+- NEVER skip an email just because it doesn't map to a specific project. Every actionable email should produce at least one suggested action.
+- Examples of general tasks: "Schedule meeting with Dr. X", "Reply to email about Y", "Review attached document", "Follow up on Z".
+
 TASK ENRICHMENT:
 - Every task MUST include a "description" field: 1-2 sentences explaining what the task involves, any context from the email, and what the expected output/deliverable is.
 - Every task MUST include a "tags" field: an array of short labels categorizing the task. Use tags from these categories:

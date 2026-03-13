@@ -46,17 +46,15 @@ async function resetDemo() {
     .eq("user_id", USER_ID);
   console.log(`  google_integrations.last_email_sync: reset to null`, e3 ? `(error: ${e3.message})` : "OK");
 
-  // 4. (Optional) Delete all projects + tasks for a fully clean slate
-  //    Uncomment the lines below if you want to start completely fresh:
-  //
-  // const { error: e4 } = await supabase.from("tasks").delete().in(
-  //   "project_id",
-  //   (await supabase.from("projects").select("id").eq("user_id", USER_ID)).data?.map(p => p.id) || []
-  // );
-  // console.log(`  tasks: deleted`, e4 ? `(error: ${e4.message})` : "OK");
-  //
-  // const { error: e5 } = await supabase.from("projects").delete().eq("user_id", USER_ID);
-  // console.log(`  projects: deleted`, e5 ? `(error: ${e5.message})` : "OK");
+  // 4. Delete all projects + tasks for a fully clean slate
+  const { data: projectIds } = await supabase.from("projects").select("id").eq("user_id", USER_ID);
+  const ids = (projectIds || []).map(p => p.id);
+  if (ids.length > 0) {
+    const { error: e4, count: c4 } = await supabase.from("tasks").delete({ count: "exact" }).in("project_id", ids);
+    console.log(`  tasks: deleted ${c4 ?? "?"} rows`, e4 ? `(error: ${e4.message})` : "OK");
+  }
+  const { error: e5, count: c5 } = await supabase.from("projects").delete({ count: "exact" }).eq("user_id", USER_ID);
+  console.log(`  projects: deleted ${c5 ?? "?"} rows`, e5 ? `(error: ${e5.message})` : "OK");
 
   console.log("\nDemo reset complete! Run a board update to re-import emails and get fresh suggestions.");
 }

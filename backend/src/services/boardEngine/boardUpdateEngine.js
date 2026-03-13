@@ -246,6 +246,24 @@ async function runHousekeeping(userId) {
  * @returns {Promise<object>} Full board update result with suggestedActions
  */
 async function runBoardUpdate(userId, trigger = "manual") {
+  // Ensure a "General" project exists for admin/misc tasks
+  let { data: generalProject } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("title", "General")
+    .single();
+
+  if (!generalProject) {
+    const { data: created } = await supabase
+      .from("projects")
+      .insert({ user_id: userId, title: "General", description: "General admin tasks, meetings, and follow-ups", status: "active" })
+      .select("id")
+      .single();
+    generalProject = created;
+    console.log("[BoardUpdate] Created General project:", generalProject?.id);
+  }
+
   // Get user's projects for context
   const { data: projects } = await supabase
     .from("projects")
