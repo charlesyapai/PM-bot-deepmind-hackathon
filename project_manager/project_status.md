@@ -1,125 +1,106 @@
 # Project Status Dashboard
 
-> **Last Updated:** 2026-03-07 11:00pm
+> **Last Updated:** 2026-03-13
+> **Project:** SmoothStream — AI-powered personal assistant for project management + life tracking
 
 ---
 
-## Project
+## Current Phase: v2 Evolution (Post-Hackathon Restructure)
 
-**Personal Bot** — Voice-driven personal project/task manager mobile app
-
-## Current Phase: v2 Google Integration — Backend Complete, Frontend Gaps Remain
-
-v1 MVP is **feature-complete and running** on iOS Simulator (iPhone 16e, iOS 26.3). All core CRUD, voice commands, AI intent execution, and housekeeping are working end-to-end.
-
-**v2 backend is fully implemented:** Google OAuth, Gmail import, Board Update Engine (with boss detection + create_project suggestions), AI upgraded to Gemini 2.5 Pro. Calendar sync and Drive integration are scaffolded.
-
-**Remaining work is frontend + demo polish.**
+The hackathon MVP is complete and working. Now evolving the app across 6 phases:
+1. Google Sheets as project board storage (replacing Supabase for tasks)
+2. Advanced LLM pipeline with multi-step reasoning + monitoring
+3. Life tracking (sleep, meals, exercise, social, work) via voice/buttons/auto
+4. Enhanced mobile UI with local STT + Kanban + timeline views
+5. Next.js web app with full parity
+6. Polish (RAG, eval framework, enhanced board updates)
 
 ---
 
-## v1 Feature Status
+## Phase Status
 
-| Feature | Status | Notes |
-|---|---|---|
-| Projects CRUD | Done | Active/Archived tabs, sort options, archive/restore/hard-delete |
-| Tasks CRUD | Done | Create, update status/priority, delete, project-scoped |
-| Templates | Done | 3 seed templates (Kanban, Checklist, Sprint) |
-| Meeting Notes | Done | Create, AI summarize, action item accept/reject |
-| Calendar Events | Done | CRUD with date-range filters, project linking |
-| Voice Pipeline | Done | Deepgram STT streaming + text command input |
-| AI Intent System | Done | Gemini 2.5 Pro, 22 function declarations |
-| Housekeeping | Done | Board health check + auto_cleanup intent |
-| File Attachments | Done | Supabase Storage, upload/download/delete |
-| Gmail Integration | Done | Read-only import, email rules, email-to-task |
-| Auth | Done | Supabase Auth JWT, login screen |
-| Project Management UI | Done | Archive/restore/hard-delete, Active/Archived tabs |
+| Phase | Status | Teams | Branch | Tests |
+|-------|--------|-------|--------|-------|
+| 1. Sheets Storage | 🟢 Ready to Start | Sheets, Backend, Test | `phase/1-sheets` | 0/12 |
+| 2. LLM Pipeline | 🟢 Ready to Start | AI, Backend, Test | `phase/2-llm-pipeline` | 0/10 |
+| 3. Life Tracking | ⚪ Not Started | Backend, AI, Test | — | — |
+| 4. Mobile UI | 🟢 Ready to Start | Mobile, Test | `phase/4-mobile-ui` | 0/6 |
+| 5. Web App | ⚪ Not Started | Web, Test | — | — |
+| 6. Polish | ⚪ Not Started | All | — | — |
 
-## v2 Feature Status (Google Integration)
-
-| Phase | Feature | Status | Notes |
-|---|---|---|---|
-| Phase 1 | Unified Google OAuth (expanded scopes) | **Done** | googleAuthClient.js, Settings > Google Account |
-| Phase 1 | google_integrations table | **Done** | Replaces email_integrations, all 17 tables verified |
-| Phase 2 | Gmail full body import | **Done** | format: "full" extracts body_text |
-| Phase 2 | Email rules (boss detection) | **Done** | Rules without project_id = boss senders |
-| Phase 3 | Board Update Engine | **Done** | Email scan + housekeeping + AI synthesis |
-| Phase 3 | Board summary with suggestedActions[] | **Done** | Gemini 2.5 Pro, create_project/create_task/update_task/create_event |
-| Phase 3 | accept_suggestion intent | **Done** | Supports all action types including create_project |
-| Phase 3 | 22 Gemini function declarations | **Done** | Including accept_suggestion, board_update, drive, calendar |
-| Phase 4 | **Suggested actions UI (accept cards)** | **NOT DONE** | Board update returns actions but no UI to display/accept them |
-| Phase 4 | **DashboardScreen (Tab 1)** | **NOT DONE** | Still using ProjectsScreen as Tab 1 |
-| Phase 2 | Google Calendar bidirectional sync | Scaffolded | Routes exist, needs live testing |
-| Phase 3 | Google Drive per-project folders | Scaffolded | Routes exist, needs live testing |
-| Phase 5 | Polish, offline handling, rate limiting | Not started | Post-demo |
+**Parallel tracks:**
+- Track A: Phase 1 → Phase 5 (Sheets → Web)
+- Track B: Phase 2 → Phase 3 (LLM → Life Tracking)
+- Track C: Phase 4 (Mobile UI — independent)
 
 ---
 
-## Demo Readiness Checklist
+## Team Status
 
-| Step | Status | Notes |
-|---|---|---|
-| Test emails sent to real Gmail | **In Progress** | User sending 5 emails from second account |
-| Email rules created (3 PIs) | **Done** | mitchell, park, sharma — all boss rules |
-| Old projects archived | **In Progress** | User archiving, 3 may remain |
-| Google OAuth connected in app | **Pending** | Settings > Google Account > Connect Google |
-| Board update tested ("catch me up") | **Pending** | Depends on OAuth + emails in inbox |
-| Suggested actions displayed to user | **BLOCKED** | No frontend UI for accept cards |
-| Voice accept ("accept suggestion 1") | **Ready** | Works via voice/text, no UI needed |
-
----
-
-## Critical Path to Demo
-
-1. **User connects Google OAuth** in app (Settings > Google Account)
-2. **User triggers board update** ("Good morning, catch me up")
-3. **AI scans emails, returns summary + suggestedActions[]**
-4. **GAP: No UI cards** — user must accept suggestions via voice ("accept suggestion 1") or we build the UI
-5. Projects + tasks appear in app
-
-**Decision needed:** Build suggested actions UI cards, or demo with voice-only accept?
+| # | Team | Status | Current Task | Blockers |
+|---|------|--------|-------------|----------|
+| 1 | Project Manager | 🟢 Active | Kickoff coordination | None |
+| 2 | Sheets Integration Engineer | ⚪ Not Started | Awaiting phase 1 kickoff | None |
+| 3 | AI Pipeline Engineer | ⚪ Not Started | Awaiting phase 2 kickoff | None |
+| 4 | Backend Engineer | ⚪ Not Started | Awaiting phases 1+2 contracts | None |
+| 5 | Mobile Engineer | ⚪ Not Started | Awaiting phase 4 kickoff | None |
+| 6 | Web Engineer | ⚪ Not Started | Blocked on Phase 1 + Phase 3 | Phase 1, Phase 3 |
+| 7 | Test & QA Engineer | ⚪ Not Started | Awaiting first deliverables | None |
 
 ---
 
-## Agent Status Overview
+## Completed Setup (2026-03-13)
 
-| # | Agent | Status | Current Task | Blockers |
-|---|---|---|---|---|
-| 1 | Project Manager | Active | Coordinating demo readiness | None |
-| 2 | Architecture Designer | Done | v2 architecture complete | None |
-| 3 | UX Designer | Standby | Suggested actions UI design needed | None |
-| 4 | Logic-AI Designer | Done | 22 intents implemented | None |
-| 5 | Backend Engineer | Done | All v2 backend services implemented | None |
-| 6 | Frontend Engineer | **Needed** | Suggested actions UI + Dashboard screen | None |
-| 7 | Test Engineer | Active | Demo walkthrough test created | None |
-| 8 | Voice-AI Engineer | Standby | Voice pipeline working | None |
-| 9 | Documentation Engineer | Standby | Post-demo | None |
-| 10 | Senior Engineer | Standby | Git commit needed — all changes unstaged | None |
+- [x] Archived 7 hackathon agent folders to `archive/hackathon-agents/`
+- [x] Created 4 new team folders with inbox/progress/notes templates
+- [x] Reset project_manager, backend_engineer, test_engineer folders
+- [x] Created `contracts/` with API contracts (sheets-api, llm-pipeline-api, life-events-api)
+- [x] Created git branches: `develop`, `phase/1-sheets`, `phase/2-llm-pipeline`, `phase/4-mobile-ui`
+- [x] Updated `communication_protocol.md` for v2 team structure
+- [ ] Write phase briefing docs (phase_1_brief.md, phase_2_brief.md, phase_4_brief.md)
+- [ ] Enable Google Sheets API in Google Cloud Console
+- [ ] Add Sheets scope to OAuth consent screen
 
 ---
 
-## Key Decisions Log
+## Key Architectural Decisions
 
-| Date | Decision | Made By | Impact |
-|---|---|---|---|
-| 2026-03-07 | v1 MVP feature-complete | PM | All agents |
-| 2026-03-07 | v2 Google Integration Architecture approved | Arch Designer | All agents |
-| 2026-03-07 | AI upgraded to Gemini 2.5 Pro (from 2.0 Flash) | PM + Charles | Logic-AI, Backend |
-| 2026-03-07 | Board Update Engine with boss detection | Backend Eng | Core demo feature |
-| 2026-03-07 | accept_suggestion supports create_project | Backend Eng | Demo flow |
-| 2026-03-07 | Email rules: no project_id = boss sender | Arch Designer | Board engine |
-| 2026-03-07 | Emails never sent directly, always draft | Arch Designer | Logic-AI, UX |
+| Date | Decision | Impact |
+|------|----------|--------|
+| 2026-03-13 | Google Sheets replaces Supabase for project/task storage | Phase 1 foundation |
+| 2026-03-13 | Multi-step LLM pipeline (classify → scope → parse → execute) | Phase 2 |
+| 2026-03-13 | Life tracking via voice memos + quick buttons + auto-detection | Phase 3 |
+| 2026-03-13 | On-device STT (expo-speech-recognition) for fast commands | Phase 4 |
+| 2026-03-13 | Next.js web app with full mobile parity | Phase 5 |
+| 2026-03-13 | Gemini only for now, model abstraction layer for future swap | Phase 2 |
+| 2026-03-13 | LLM monitoring with performance drift detection | Phase 2 |
 
-## Current Blockers
+---
 
-| Blocker | Owner | Impact |
-|---|---|---|
-| No suggested actions UI | Frontend Engineer | Users can't tap to accept board suggestions |
-| All changes unstaged/uncommitted | Senior Engineer | No git history for v2 work |
-| Google OAuth not yet connected | Charles | Can't test board update until connected |
+## API Contracts
 
-## Architecture
+| Contract | Owner | Consumers | File |
+|----------|-------|-----------|------|
+| Sheets API | Sheets Engineer | Backend, AI Pipeline | `contracts/sheets-api.md` |
+| LLM Pipeline API | AI Engineer | Backend | `contracts/llm-pipeline-api.md` |
+| Life Events API | Backend Engineer | Mobile, Web, AI | `contracts/life-events-api.md` |
 
-**Tech Stack:** React Native (Expo) + Node.js/Express + PostgreSQL (Supabase) + Google Gemini 2.5 Pro + Deepgram STT
-**v2 additions:** Google Calendar API + Google Drive API + Gmail full body import + Board Update Engine + Boss Detection
-**Full v2 details:** [`architecture_designer/GOOGLE_INTEGRATION_ARCHITECTURE.md`](../architecture_designer/GOOGLE_INTEGRATION_ARCHITECTURE.md)
+---
+
+## Baseline from Hackathon (v1)
+
+| Feature | Status |
+|---------|--------|
+| Projects CRUD | Done |
+| Tasks CRUD | Done |
+| Calendar Events | Done |
+| Gmail Integration | Done |
+| Google OAuth (Gmail + Calendar + Drive) | Done |
+| Board Update Engine | Done |
+| AI Intent System (22 intents) | Done |
+| Voice Pipeline (Deepgram) | Done |
+| Housekeeping | Done |
+| File Attachments | Done |
+| 78 integration tests | Done |
+
+All v1 features remain working on `main` branch.
